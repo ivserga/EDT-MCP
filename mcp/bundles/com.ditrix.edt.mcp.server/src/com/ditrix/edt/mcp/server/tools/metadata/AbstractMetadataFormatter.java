@@ -15,6 +15,7 @@ import org.eclipse.emf.ecore.EReference;
 import org.eclipse.emf.ecore.EStructuralFeature;
 
 import com._1c.g5.v8.dt.metadata.mdclass.MdObject;
+import com._1c.g5.v8.dt.metadata.mdclass.StandardAttribute;
 import com._1c.g5.v8.dt.mcore.TypeDescription;
 import com._1c.g5.v8.dt.mcore.TypeItem;
 import com._1c.g5.v8.dt.mcore.util.McoreUtil;
@@ -225,6 +226,61 @@ public abstract class AbstractMetadataFormatter implements IMetadataFormatter
         }
     }
     
+    /**
+     * Format StandardAttributes section if the object has them.
+     * StandardAttributes are only present in certain metadata types like BasicDbObject, BasicTabularSection, etc.
+     * 
+     * @param sb StringBuilder to append to
+     * @param eObject The metadata object (will check if it has getStandardAttributes() method)
+     * @param language Language for synonyms
+     */
+    protected void formatStandardAttributes(StringBuilder sb, EObject eObject, String language)
+    {
+        // Use reflection to check if this object has getStandardAttributes() method
+        // This method exists in: BasicDbObject, BasicTabularSection, and Register types
+        try
+        {
+            java.lang.reflect.Method method = eObject.getClass().getMethod("getStandardAttributes"); //$NON-NLS-1$
+            @SuppressWarnings("unchecked")
+            EList<StandardAttribute> standardAttributes = (EList<StandardAttribute>) method.invoke(eObject);
+            
+            if (standardAttributes != null && !standardAttributes.isEmpty())
+            {
+                addSectionHeader(sb, "StandardAttributes"); //$NON-NLS-1$
+                startTable(sb, "Name", "Synonym", "Fill Checking", "Full Text Search", "Password Mode", "Multi Line", "Quick Choice", "Create On Input", "Data History"); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$ //$NON-NLS-5$ //$NON-NLS-6$ //$NON-NLS-7$ //$NON-NLS-8$ //$NON-NLS-9$
+                
+                for (StandardAttribute attr : standardAttributes)
+                {
+                    String name = attr.getName();
+                    String synonym = getSynonym(attr.getSynonym(), language);
+                    
+                    addTableRow(sb, 
+                        name != null ? name : DASH,
+                        synonym != null && !synonym.isEmpty() ? synonym : DASH,
+                        formatEnum(attr.getFillChecking()),
+                        formatEnum(attr.getFullTextSearch()),
+                        formatBoolean(attr.isPasswordMode()),
+                        formatBoolean(attr.isMultiLine()),
+                        formatEnum(attr.getQuickChoice()),
+                        formatEnum(attr.getCreateOnInput()),
+                        formatEnum(attr.getDataHistory())
+                    );
+                }
+            }
+        }
+        catch (NoSuchMethodException e)
+        {
+            // This object doesn't have StandardAttributes - perfectly normal
+            // Do nothing
+        }
+        catch (Exception e)
+        {
+            // Log error but don't fail the entire formatting
+            System.err.println("Error formatting StandardAttributes: " + e.getMessage()); //$NON-NLS-1$
+            e.printStackTrace();
+        }
+    }
+    
     // ========== Dynamic EMF Reflection Methods ==========
     
     /**
@@ -251,8 +307,8 @@ public abstract class AbstractMetadataFormatter implements IMetadataFormatter
                 continue;
             }
             
-            // Skip features that are not set (use default)
-            if (!eObject.eIsSet(feature))
+            // Skip containment references (handled separately as collections)
+            if (feature instanceof EReference && ((EReference) feature).isContainment())
             {
                 continue;
             }
@@ -260,11 +316,21 @@ public abstract class AbstractMetadataFormatter implements IMetadataFormatter
             Object value = eObject.eGet(feature);
             String valueStr = formatDynamicValue(value, feature, language);
             
-            // Only add if value is meaningful
-            if (valueStr != null && !valueStr.isEmpty() && !valueStr.equals(DASH))
+            // Show all properties, even empty ones - use empty string for null/empty values
+            if (valueStr == null || valueStr.equals(DASH))
             {
-                addPropertyRow(sb, formatFeatureName(feature.getName()), valueStr);
+                // Check if it's an empty collection/list
+                if (value instanceof Collection && ((Collection<?>) value).isEmpty())
+                {
+                    valueStr = ""; //$NON-NLS-1$
+                }
+                else if (value == null)
+                {
+                    continue; // Skip truly null values
+                }
             }
+            
+            addPropertyRow(sb, formatFeatureName(feature.getName()), valueStr);
         }
     }
     
@@ -365,8 +431,26 @@ public abstract class AbstractMetadataFormatter implements IMetadataFormatter
     /**
      * Format a collection of references.
      */
+    @SuppressWarnings("rawtypes")
     protected void formatReferenceCollection(StringBuilder sb, String name, Collection<?> collection, String language)
     {
+        // Check if this is an EMap collection (contains Map.Entry items)
+        Object firstItem = collection.iterator().next();
+        if (firstItem instanceof java.util.Map.Entry)
+        {
+            // For EMap collections like Synonym, ObjectPresentation - format as key-value table
+            addSectionHeader(sb, formatFeatureName(name) + " (" + collection.size() + ")"); //$NON-NLS-1$ //$NON-NLS-2$
+            startTable(sb, "Language", "Value"); //$NON-NLS-1$ //$NON-NLS-2$
+            for (Object item : collection)
+            {
+                java.util.Map.Entry entry = (java.util.Map.Entry) item;
+                String key = entry.getKey() != null ? entry.getKey().toString() : DASH;
+                String value = entry.getValue() != null ? entry.getValue().toString() : DASH;
+                addTableRow(sb, key, value);
+            }
+            return;
+        }
+        
         addSectionHeader(sb, formatFeatureName(name) + " (" + collection.size() + ")"); //$NON-NLS-1$ //$NON-NLS-2$
         
         boolean first = true;
@@ -377,10 +461,12 @@ public abstract class AbstractMetadataFormatter implements IMetadataFormatter
                 MdObject mdObj = (MdObject) item;
                 if (first)
                 {
-                    startTable(sb, "Name", "Synonym"); //$NON-NLS-1$ //$NON-NLS-2$
+                    startTable(sb, "FQN", "Synonym"); //$NON-NLS-1$ //$NON-NLS-2$
                     first = false;
                 }
-                addTableRow(sb, mdObj.getName(), getSynonym(mdObj.getSynonym(), language));
+                // Show full FQN: Type.Name (e.g. Catalog.Products)
+                String fqn = mdObj.eClass().getName() + "." + mdObj.getName(); //$NON-NLS-1$
+                addTableRow(sb, fqn, getSynonym(mdObj.getSynonym(), language));
             }
             else if (item instanceof EObject)
             {
@@ -499,9 +585,22 @@ public abstract class AbstractMetadataFormatter implements IMetadataFormatter
                 for (Object item : coll)
                 {
                     if (sb.length() > 0) sb.append(", "); //$NON-NLS-1$
-                    if (item instanceof MdObject)
+                    
+                    // Handle Map.Entry (LocalStringMapEntry, etc.)
+                    if (item instanceof java.util.Map.Entry)
                     {
-                        sb.append(((MdObject) item).getName());
+                        java.util.Map.Entry<?, ?> entry = (java.util.Map.Entry<?, ?>) item;
+                        Object entryValue = entry.getValue();
+                        if (entryValue != null)
+                        {
+                            sb.append(entryValue.toString());
+                        }
+                    }
+                    else if (item instanceof MdObject)
+                    {
+                        // Show full FQN: Type.Name (e.g. Catalog.Products)
+                        MdObject mdObj = (MdObject) item;
+                        sb.append(mdObj.eClass().getName()).append(".").append(mdObj.getName()); //$NON-NLS-1$
                     }
                     else if (item instanceof EObject)
                     {

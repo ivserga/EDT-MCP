@@ -14,6 +14,7 @@ import org.eclipse.emf.ecore.EReference;
 import org.eclipse.emf.ecore.EStructuralFeature;
 
 import com._1c.g5.v8.dt.metadata.mdclass.MdObject;
+import com._1c.g5.v8.dt.mcore.ReferenceValue;
 
 /**
  * Utility class for inspecting and analyzing EObject types in EDT EMF model.
@@ -336,6 +337,8 @@ public final class EObjectInspector
     /**
      * Format an EObject reference as a string.
      * For MdObject: returns "TypeName.ObjectName"
+     * For BmObject with name: returns "TypeName.ObjectName"
+     * For ReferenceValue: unwraps and formats the contained value
      * For simple wrappers: returns the primary value
      * For complex objects: returns the class name
      * 
@@ -346,6 +349,19 @@ public final class EObjectInspector
     {
         if (eObj == null)
         {
+            return ""; //$NON-NLS-1$
+        }
+        
+        // Handle ReferenceValue wrapper - unwrap and format the contained value
+        if (eObj instanceof ReferenceValue)
+        {
+            ReferenceValue refValue = (ReferenceValue) eObj;
+            EObject containedValue = refValue.getValue();
+            if (containedValue != null)
+            {
+                // Recursively format the contained object
+                return formatReference(containedValue);
+            }
             return ""; //$NON-NLS-1$
         }
         
@@ -362,19 +378,35 @@ public final class EObjectInspector
             return getPrimaryValueAsString(eObj);
         }
         
-        // Try to get a meaningful name
+        // For BmObject with name property (PredefinedItem, etc.) - show as Type.Name format
         EStructuralFeature nameFeature = eObj.eClass().getEStructuralFeature("name"); //$NON-NLS-1$
-        if (nameFeature != null && eObj.eIsSet(nameFeature))
+        if (nameFeature != null)
         {
             Object name = eObj.eGet(nameFeature);
             if (name != null && !name.toString().isEmpty())
             {
-                return eObj.eClass().getName() + "(" + name + ")"; //$NON-NLS-1$ //$NON-NLS-2$
+                // If it's a BmObject with a name, use Type.Name format (like MdObject)
+                String typeName = getCleanClassName(eObj);
+                return typeName + "." + name; //$NON-NLS-1$
             }
         }
         
-        // Fallback: class name
-        return eObj.eClass().getName();
+        // Try alternative name features (some objects use different naming)
+        for (String altName : Arrays.asList("id", "identifier", "code")) //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
+        {
+            EStructuralFeature altFeature = eObj.eClass().getEStructuralFeature(altName);
+            if (altFeature != null)
+            {
+                Object value = eObj.eGet(altFeature);
+                if (value != null && !value.toString().isEmpty())
+                {
+                    return getCleanClassName(eObj) + "." + value; //$NON-NLS-1$
+                }
+            }
+        }
+        
+        // Fallback: clean class name without Impl suffix
+        return getCleanClassName(eObj);
     }
     
     /**
