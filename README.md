@@ -17,6 +17,8 @@ MCP (Model Context Protocol) server plugin for 1C:EDT, enabling AI assistants (C
 
 ### From Update Site
 
+**Only EDT 2025.2.0+**
+
 1. In EDT: **Help → Install New Software...**
 2. Add update site URL
 3. Select **EDT MCP Server Feature**
