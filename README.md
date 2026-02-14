@@ -13,6 +13,9 @@ MCP (Model Context Protocol) server plugin for 1C:EDT, enabling AI assistants (C
 - 🔄 **Project Revalidation** - Trigger revalidation when validation gets stuck
 - 🔖 **Bookmarks & Tasks** - Access bookmarks and TODO/FIXME markers
 - 💡 **Content Assist** - Get type info, method hints and platform documentation at any code position
+- 🧪 **Query Validation** - Validate 1C query text in project context (syntax + semantic errors, optional DCS mode)
+- 🧩 **BSL Code Analysis** - Browse modules, inspect structure, read methods, search code, and analyze call hierarchy
+- 🖼️ **Form Screenshot Capture** - Get PNG screenshots from the form WYSIWYG editor for visual inspection
 - 🚀 **Application Management** - Get applications, update database, launch in debug mode
 - 🎯 **Status Bar** - Real-time server status with tool name, execution time, and interactive controls
 - ⚡ **Interruptible Operations** - Cancel long-running operations and send signals to AI agent
@@ -187,6 +190,7 @@ Add to `claude_desktop_config.json`:
 | `read_method_source` | Read a specific procedure/function from a BSL module by name |
 | `search_in_code` | Full-text/regex search across BSL modules with outputMode: full/count/files |
 | `get_method_call_hierarchy` | Find method callers or callees via semantic BSL analysis |
+| `validate_query` | Validate 1C query text in project context (syntax + semantic errors, optional DCS mode) |
 
 <details>
 <summary><strong>Tool Details</strong> - Parameters and usage examples for each tool</summary>
@@ -224,6 +228,9 @@ Add to `claude_desktop_config.json`:
 - **`revalidate_objects`**: Revalidates specific metadata objects by their FQN:
   - `Document.MyDocument`, `Catalog.MyCatalog`, `CommonModule.MyModule`
   - `Document.MyDoc.Form.MyForm` for nested objects
+- **`validate_query`**: Validates query language text in project context and returns syntax/semantic errors.
+  - Parameters: `projectName` (required), `queryText` (required), `dcsMode` (optional, default `false`)
+  - Use `dcsMode=true` for Data Composition System (DCS) queries
 
 ### Project Errors Tool
 
@@ -772,6 +779,15 @@ groups:
 ## Version History
 
 <details>
+<summary><strong>1.24.0</strong> - Query validation tool</summary>
+
+- **New**: `validate_query` tool validates 1C query text in project context
+  - Returns syntax and semantic issues with line/column/offset
+  - Supports `dcsMode=true` for Data Composition System (DCS) query validation
+
+</details>
+
+<details>
 <summary><strong>1.23.0</strong> - Form screenshots as image resources</summary>
 
 - **New**: `get_form_screenshot` tool returns PNG image as resource
@@ -1026,4 +1042,4 @@ groups:
 # Licensed under GNU AGPL v3.0
 
 ---
-*EDT MCP Server v1.23.0*
+*EDT MCP Server v1.24.0*
