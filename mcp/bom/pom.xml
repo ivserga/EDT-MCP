@@ -13,7 +13,7 @@
 
   <groupId>com.ditrix.edt.mcp</groupId>
   <artifactId>bom</artifactId>
-  <version>1.22.1-SNAPSHOT</version>
+  <version>1.23.0-SNAPSHOT</version>
   <packaging>pom</packaging>
 
   <name>BOM</name>
@@ -34,6 +34,11 @@
 
     <maven.build.timestamp.format>'v'yyyyMMdd-HHmm</maven.build.timestamp.format>
     <qualifier>${maven.build.timestamp}</qualifier>
+
+    <!-- Performance optimizations -->
+    <tycho.localArtifacts>ignore</tycho.localArtifacts>
+    <tycho.resolver.classic>false</tycho.resolver.classic>
+    <tycho.baseline.skip>true</tycho.baseline.skip>
   </properties>
 
   <build>
@@ -51,7 +56,7 @@
               <artifact>
                 <groupId>com.ditrix.edt.mcp</groupId>
                 <artifactId>default</artifactId>
-                <version>1.22.1-SNAPSHOT</version>
+                <version>1.23.0-SNAPSHOT</version>
               </artifact>
             </target>
             <dependency-resolution>

@@ -24,7 +24,9 @@ public interface IMcpTool
         /** JSON response with structuredContent */
         JSON,
         /** Markdown response returned as EmbeddedResource with mimeType */
-        MARKDOWN
+        MARKDOWN,
+        /** Image response returned as EmbeddedResource with image/* mimeType */
+        IMAGE
     }
     
     /**

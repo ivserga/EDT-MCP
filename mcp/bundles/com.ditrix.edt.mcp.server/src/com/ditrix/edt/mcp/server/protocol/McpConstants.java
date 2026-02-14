@@ -1,9 +1,6 @@
-﻿/**
- * MCP Server for EDT
- * Copyright (C) 2025 DitriX (https://github.com/DitriXNew)
- * Licensed under AGPL-3.0-or-later
+/**
+ * Copyright (c) 2025 DitriX
  */
-
 package com.ditrix.edt.mcp.server.protocol;
 
 /**
@@ -25,7 +22,7 @@ public final class McpConstants
     public static final String AUTHOR = "DitriX"; //$NON-NLS-1$
     
     /** Plugin version - synced with Bundle-Version in MANIFEST.MF */
-    public static final String PLUGIN_VERSION = "1.22.1"; //$NON-NLS-1$
+    public static final String PLUGIN_VERSION = "1.23.0"; //$NON-NLS-1$
     
     // JSON-RPC error codes
     /** Parse error */

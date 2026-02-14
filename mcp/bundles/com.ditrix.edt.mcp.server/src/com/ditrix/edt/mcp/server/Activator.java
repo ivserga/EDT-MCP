@@ -64,6 +64,14 @@ public class Activator extends AbstractUIPlugin
         super.start(context);
         plugin = this;
         mcpServer = new McpServer();
+
+        // In Tycho headless test runtime, avoid eager workspace/UI/platform initialization.
+        // This prevents background platform startup races that can fail the test process.
+        if (isHeadless())
+        {
+            logInfo("EDT MCP Server plugin started in headless mode (startup integrations skipped)"); //$NON-NLS-1$
+            return;
+        }
         
         // Initialize service trackers
         v8ProjectManagerTracker = new ServiceTracker<>(context, IV8ProjectManager.class, null);
@@ -106,17 +114,21 @@ public class Activator extends AbstractUIPlugin
         groupService = new com.ditrix.edt.mcp.server.groups.internal.GroupServiceImpl();
         ((com.ditrix.edt.mcp.server.groups.internal.GroupServiceImpl) groupService).activate();
         
-        // Initialize filter manager to reset toggle state on startup
-        com.ditrix.edt.mcp.server.tags.ui.FilterByTagManager.getInstance();
-        
-        // Initialize navigator toolbar customizer to hide standard Collapse All button
-        org.eclipse.swt.widgets.Display.getDefault().asyncExec(() -> {
-            try {
-                com.ditrix.edt.mcp.server.ui.NavigatorToolbarCustomizer.getInstance().initialize();
-            } catch (Exception e) {
-                logError("Failed to initialize NavigatorToolbarCustomizer", e);
-            }
-        });
+        // Initialize UI components only in non-headless mode
+        if (!isHeadless())
+        {
+            // Initialize filter manager to reset toggle state on startup
+            com.ditrix.edt.mcp.server.tags.ui.FilterByTagManager.getInstance();
+            
+            // Initialize navigator toolbar customizer to hide standard Collapse All button
+            org.eclipse.swt.widgets.Display.getDefault().asyncExec(() -> {
+                try {
+                    com.ditrix.edt.mcp.server.ui.NavigatorToolbarCustomizer.getInstance().initialize();
+                } catch (Exception e) {
+                    logError("Failed to initialize NavigatorToolbarCustomizer", e);
+                }
+            });
+        }
         
         logInfo("EDT MCP Server plugin started"); //$NON-NLS-1$
     }
@@ -191,27 +203,31 @@ public class Activator extends AbstractUIPlugin
             navigatorStateProviderTracker = null;
         }
         
-        // Dispose navigator toolbar customizer
-        try
+        // Dispose UI components only in non-headless mode
+        if (!isHeadless())
         {
-            org.eclipse.swt.widgets.Display display = org.eclipse.swt.widgets.Display.getDefault();
-            if (display != null && !display.isDisposed())
+            // Dispose navigator toolbar customizer
+            try
             {
-                display.syncExec(() -> {
-                    try
-                    {
-                        com.ditrix.edt.mcp.server.ui.NavigatorToolbarCustomizer.getInstance().dispose();
-                    }
-                    catch (Exception e)
-                    {
-                        // Ignore - workbench may be closing
-                    }
-                });
+                org.eclipse.swt.widgets.Display display = org.eclipse.swt.widgets.Display.getDefault();
+                if (display != null && !display.isDisposed())
+                {
+                    display.syncExec(() -> {
+                        try
+                        {
+                            com.ditrix.edt.mcp.server.ui.NavigatorToolbarCustomizer.getInstance().dispose();
+                        }
+                        catch (Exception e)
+                        {
+                            // Ignore - workbench may be closing
+                        }
+                    });
+                }
             }
-        }
-        catch (Exception e)
-        {
-            // Ignore - display may be disposed
+            catch (Exception e)
+            {
+                // Ignore - display may be disposed
+            }
         }
         
         // Deactivate group service
@@ -539,5 +555,40 @@ public class Activator extends AbstractUIPlugin
     public static IStatus createErrorStatus(String message, Throwable e)
     {
         return new Status(IStatus.ERROR, PLUGIN_ID, message, e);
+    }
+
+    /**
+     * Checks if the application is running in headless mode (no UI).
+     * 
+     * @return true if headless, false otherwise
+     */
+    private static boolean isHeadless()
+    {
+        // Check headless indicators without accessing Display.
+        // (Display.getDefault() initializes GTK and fails in headless environments.)
+
+        // 1) Eclipse test mode property
+        String testSuite = System.getProperty("org.eclipse.ui.testsuite"); //$NON-NLS-1$
+        if ("true".equals(testSuite)) //$NON-NLS-1$
+        {
+            return true;
+        }
+
+        // 2) Eclipse application type (Tycho uses headlesstest)
+        String eclipseApplication = System.getProperty("eclipse.application"); //$NON-NLS-1$
+        if (eclipseApplication != null && eclipseApplication.contains("headless")) //$NON-NLS-1$
+        {
+            return true;
+        }
+
+        // 3) Standard AWT headless flag (if provided by runtime)
+        String awtHeadless = System.getProperty("java.awt.headless"); //$NON-NLS-1$
+        if ("true".equalsIgnoreCase(awtHeadless)) //$NON-NLS-1$
+        {
+            return true;
+        }
+
+        // Default to false (assume UI is available)
+        return false;
     }
 }

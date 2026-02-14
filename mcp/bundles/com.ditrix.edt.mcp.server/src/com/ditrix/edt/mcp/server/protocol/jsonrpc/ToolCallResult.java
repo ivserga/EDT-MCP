@@ -48,7 +48,17 @@ public class ToolCallResult
     public static ToolCallResult resource(String uri, String mimeType, String text)
     {
         ToolCallResult result = new ToolCallResult();
-        result.content.add(ContentItem.resource(uri, mimeType, text));
+        result.content.add(ContentItem.resource(uri, mimeType, text, null));
+        return result;
+    }
+    
+    /**
+     * Creates a resource content result with blob data (for images, etc.).
+     */
+    public static ToolCallResult resourceBlob(String uri, String mimeType, String base64Blob)
+    {
+        ToolCallResult result = new ToolCallResult();
+        result.content.add(ContentItem.resource(uri, mimeType, null, base64Blob));
         return result;
     }
     
@@ -83,11 +93,11 @@ public class ToolCallResult
             return item;
         }
         
-        public static ContentItem resource(String uri, String mimeType, String text)
+        public static ContentItem resource(String uri, String mimeType, String text, String blob)
         {
             ContentItem item = new ContentItem();
             item.type = "resource"; //$NON-NLS-1$
-            item.resource = new ResourceInfo(uri, mimeType, text);
+            item.resource = new ResourceInfo(uri, mimeType, text, blob);
             return item;
         }
         
@@ -115,12 +125,14 @@ public class ToolCallResult
         private String uri;
         private String mimeType;
         private String text;
+        private String blob;
         
-        public ResourceInfo(String uri, String mimeType, String text)
+        public ResourceInfo(String uri, String mimeType, String text, String blob)
         {
             this.uri = uri;
             this.mimeType = mimeType;
             this.text = text;
+            this.blob = blob;
         }
         
         public String getUri()
@@ -136,6 +148,11 @@ public class ToolCallResult
         public String getText()
         {
             return text;
+        }
+        
+        public String getBlob()
+        {
+            return blob;
         }
     }
 }
